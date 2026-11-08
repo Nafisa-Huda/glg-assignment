@@ -17,12 +17,12 @@ export interface Order {
 }
 
 export class OrderFactory {
-  public static createOrder(params: Pick<Order, "userId" | "referenceId" | "amount">): Order {
+  public static createOrder(params: Pick<Order, "userId" | "referenceId">): Order {
     return {
       orderId: randomUUID(),
       userId: params.userId,
       referenceId: params.referenceId,
-      amount: params.amount,
+      amount: 0, // placeholder, calculated from the order items once the pipeline generates them
       status: OrderStatus.PROCESSING,
       createdAt: Date.now(),
       updatedAt: Date.now(),
