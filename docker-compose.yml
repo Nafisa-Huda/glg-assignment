@@ -18,8 +18,9 @@ services:
     container_name: sqs
     volumes:
       - sqs_data:/var/lib/elasticmq
-      - ./elasticmq.conf:/etc/elasticmq/elasticmq.conf
-    command: -Dconfig.file=/etc/elasticmq/elasticmq.conf
+      # Mount at the path the image's ENTRYPOINT already reads by default (-Dconfig.file=/opt/elasticmq.conf).
+      # The previous 'command: -Dconfig.file=' didn't actually work because it's appended after -jar, so Java ignores it.
+      - ./elasticmq.conf:/opt/elasticmq.conf
 
   dynamodb:
     command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /home/dynamodblocal/data"
