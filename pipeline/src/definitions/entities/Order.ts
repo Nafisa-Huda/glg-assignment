@@ -14,4 +14,4 @@ export interface Order {
   completedAt?: number;
 }
 
-export type MutableOrderFields = Partial<Pick<Order, "receiptFilePath" | "details" | "updatedAt" | "completedAt" | "status">>
+export type MutableOrderFields = Partial<Pick<Order, "receiptFilePath" | "details" | "amount" | "updatedAt" | "completedAt" | "status">>

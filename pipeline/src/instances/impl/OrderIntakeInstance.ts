@@ -36,7 +36,12 @@ export class OrderIntakeInstance extends QueueInstance<OrderMessage> {
     }
 
     const details = OrderDetailsFactory.create();
-    await OrdersDatabase.update(order.orderId, { details });
+
+    // Total is derived from the generated items so the receipt total matches the items total price.
+    const total = details.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const amount = Math.round(total * 100) / 100;
+
+    await OrdersDatabase.update(order.orderId, { details, amount });
 
     this.logger.info(`Order ${orderId} details updated`);
     await SimpleQueueService.sendMessage(SQS_ORDER_PROCESSING_QUEUE_NAME, "Process a receipt from intake", { orderId });
