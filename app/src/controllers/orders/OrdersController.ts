@@ -6,7 +6,7 @@ import { getOrderStatus } from "../../definitions/enums/OrderStatus";
 import { OrderFactory } from "../../definitions/entities/Order";
 import { SimpleQueueService } from "../../services/sqs/SimpleQueueService";
 
-const { SQS_ORDER_INTAKE_QUEUE_NAME } = process.env;
+const { SQS_ORDER_INTAKE_QUEUE_NAME, SQS_ORDER_CANCELLATION_QUEUE_NAME } = process.env;
 
 /**
  * @swagger
@@ -38,7 +38,7 @@ export class OrdersController extends Controller {
    *          schema:
    *            type: string
    *            description: The status to filter orders by.
-   *            enum: [PROCESSING, COMPLETED, ERROR]
+   *            enum: [PROCESSING, COMPLETED, CANCELLED, ERROR]
    *        - in: query
    *          name: count
    *          required: true
@@ -204,7 +204,7 @@ export class OrdersController extends Controller {
     * /api/orders:
     *    delete:
     *      tags: [Orders]
-    *      summary: Delete an order.
+    *      summary: Cancel an order.
     *      requestBody:
     *        required: true
     *        content:
@@ -221,7 +221,7 @@ export class OrdersController extends Controller {
     *        "200":
     *          description: OK
     *        "404":
-    *          description: BAD REQUEST
+    *          description: ORDER NOT FOUND
     *        "400":
     *          description: BAD REQUEST
     *        "500":
@@ -241,8 +241,14 @@ export class OrdersController extends Controller {
         return;
       }
 
-      await OrdersDatabase.deleteOrder(orderId);
-      res.status(200).json({ success: true, order });
+      const cancelledOrder = await OrdersDatabase.cancelOrder(orderId);
+      if (!cancelledOrder) {
+        res.status(400).json({ success: false, message: "ORDER_NOT_CANCELLABLE" });
+        return;
+      }
+
+      await SimpleQueueService.sendMessage(SQS_ORDER_CANCELLATION_QUEUE_NAME, "Cancelling order from API", { orderId });
+      res.status(200).json({ success: true, order: cancelledOrder });
     }
     catch (error) {
       this.handleError(req, res, error);

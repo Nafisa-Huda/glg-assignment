@@ -1,8 +1,9 @@
 import {
-  DeleteItemCommand,
+  ConditionalCheckFailedException,
   GetItemCommand,
   PutItemCommand,
   ScanCommand,
+  UpdateItemCommand,
 } from "@aws-sdk/client-dynamodb";
 import { unmarshall, marshall } from "@aws-sdk/util-dynamodb";
 
@@ -99,15 +100,31 @@ export class OrdersDatabase {
     return response.Items[0] as Order;
   }
 
-  public static async deleteOrder(orderId: string): Promise<void> {
+  // Cancels the order only if it's still processing, otherwise returns null.
+  public static async cancelOrder(orderId: string): Promise<Order | null> {
     const client = DynamoService.getClient();
     if (!DYNAMO_TABLE_ORDERS) throw new Error("DYNAMO_TABLE_ORDERS is not defined");
 
-    const command = new DeleteItemCommand({
+    const command = new UpdateItemCommand({
       TableName: DYNAMO_TABLE_ORDERS,
       Key: { orderId: { S: orderId } },
+      UpdateExpression: "set #status = :status, updatedAt = :updatedAt",
+      ConditionExpression: "#status = :processing",
+      ExpressionAttributeNames: { "#status": "status" },
+      ExpressionAttributeValues: {
+        ":status": { S: OrderStatus.CANCELLED },
+        ":processing": { S: OrderStatus.PROCESSING },
+        ":updatedAt": { N: `${Date.now()}` },
+      },
+      ReturnValues: "ALL_NEW",
     });
 
-    await client.send(command);
+    try {
+      const response = await client.send(command);
+      return unmarshall(response.Attributes!) as Order;
+    } catch (error) {
+      if (error instanceof ConditionalCheckFailedException) return null;
+      throw error;
+    }
   }
 }
